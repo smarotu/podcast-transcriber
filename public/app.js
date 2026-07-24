@@ -260,17 +260,10 @@ async function performPodcastSearch() {
 
     try {
         let results = [];
+        
+        // 1. Direct iTunes Episode Search (Works 100% on GitHub Pages static mode)
         try {
-            const res = await fetch(`/api/search-podcast?q=${encodeURIComponent(q)}`);
-            if (res.ok) {
-                const data = await res.json();
-                results = data.results || [];
-            }
-        } catch (e) {}
-
-        // Fallback for GitHub Pages static mode (iTunes API CORS search)
-        if (results.length === 0) {
-            const itunesRes = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(q)}&entity=podcastEpisode&limit=10`);
+            const itunesRes = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(q)}&entity=podcastEpisode&limit=15`);
             if (itunesRes.ok) {
                 const itunesData = await itunesRes.json();
                 results = (itunesData.results || []).map(r => ({
@@ -280,6 +273,41 @@ async function performPodcastSearch() {
                     artwork: r.artworkUrl100 || r.artworkUrl60
                 })).filter(r => r.audioUrl);
             }
+        } catch (e) {
+            console.error('iTunes direct search error:', e);
+        }
+
+        // 2. If episode search is empty, search podcast shows & RSS feeds
+        if (results.length === 0) {
+            try {
+                const showRes = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(q)}&entity=podcast&limit=5`);
+                if (showRes.ok) {
+                    const showData = await showRes.json();
+                    if (showData.results && showData.results.length > 0) {
+                        const topShow = showData.results[0];
+                        if (topShow.feedUrl) {
+                            const corsRss = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(topShow.feedUrl)}`);
+                            if (corsRss.ok) {
+                                const xmlText = await corsRss.text();
+                                const parser = new DOMParser();
+                                const xmlDoc = parser.parseFromString(xmlText, "text/xml");
+                                const items = xmlDoc.querySelectorAll("item");
+                                items.forEach(item => {
+                                    const epTitle = item.querySelector("title")?.textContent;
+                                    const enclosure = item.querySelector("enclosure")?.getAttribute("url");
+                                    if (epTitle && enclosure) {
+                                        results.push({
+                                            title: epTitle,
+                                            show: topShow.collectionName || 'Podcast',
+                                            audioUrl: enclosure
+                                        });
+                                    }
+                                });
+                            }
+                        }
+                    }
+                }
+            } catch (e) {}
         }
 
         if (results.length > 0) {
