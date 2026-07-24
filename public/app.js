@@ -241,6 +241,8 @@ if (btnStartLiveSpeech) {
         const langCode = langMap[selectedLang] || 'pt-PT';
         startLiveSpeechRecognition(langCode);
     });
+}
+
 // Google OAuth 2.0 Sign-In for YouTube Captions & Data API
 let ytAccessToken = localStorage.getItem('yt_oauth_token') || null;
 let googleTokenClient = null;
@@ -255,7 +257,7 @@ function initYouTubeOAuth() {
     }
 
     if (btnYtAuth) {
-        btnYtAuth.addEventListener('click', () => {
+        btnYtAuth.onclick = () => {
             if (ytAccessToken) {
                 ytAccessToken = null;
                 localStorage.removeItem('yt_oauth_token');
@@ -270,10 +272,11 @@ function initYouTubeOAuth() {
                 return;
             }
 
-            if (!googleTokenClient) {
+            try {
                 googleTokenClient = google.accounts.oauth2.initTokenClient({
                     client_id: '921191599818-m4b8v6s9k0r8p7q6e3w2a1z0y9x8w7v6.apps.googleusercontent.com',
                     scope: 'https://www.googleapis.com/auth/youtube.readonly',
+                    ux_mode: 'popup',
                     callback: (response) => {
                         if (response.access_token) {
                             ytAccessToken = response.access_token;
@@ -281,12 +284,17 @@ function initYouTubeOAuth() {
                             if (ytAuthStatus) ytAuthStatus.innerHTML = '<span style="color:#10b981; font-weight:600;">✅ YouTube Authenticated</span>';
                             btnYtAuth.textContent = 'Sign Out';
                             showToast('✅ Successfully signed in to YouTube!');
+                        } else if (response.error) {
+                            showToast('Sign-in cancelled or error: ' + response.error);
                         }
                     }
                 });
+                googleTokenClient.requestAccessToken();
+            } catch (err) {
+                console.error('OAuth error:', err);
+                showToast('OAuth popup error: ' + err.message);
             }
-            googleTokenClient.requestAccessToken();
-        });
+        };
     }
 }
 
