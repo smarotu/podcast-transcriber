@@ -16,6 +16,13 @@ async function getTranscriber(modelName, onProgress) {
     return transcriberInstance;
 }
 
+// Normalize language codes like 'pt-PT' -> 'pt', 'en-US' -> 'en'
+function normalizeLang(lang) {
+    if (!lang || lang === 'auto') return null;
+    // Whisper expects bare 2-letter ISO codes
+    return lang.split('-')[0].split('_')[0].toLowerCase();
+}
+
 self.addEventListener('message', async (event) => {
     let { action, modelName = 'Xenova/whisper-tiny', language = 'auto', audioBuffer } = event.data;
     if (action === 'transcribe_live_chunk') {
@@ -23,7 +30,11 @@ self.addEventListener('message', async (event) => {
             if (modelName.endsWith('.en')) modelName = modelName.replace('.en', '');
             const transcriber = await getTranscriber(modelName, () => {});
             const transcribeOpts = { task: 'transcribe', no_repeat_ngram_size: 5, repetition_penalty: 1.3, temperature: 0.0 };
-            if (language && language !== 'auto') transcribeOpts.language = language;
+            const normalizedLang = normalizeLang(language);
+            if (normalizedLang) transcribeOpts.language = normalizedLang;
+            // Skip silent pre-warm buffers (all zeros)
+            const isSilent = audioBuffer.every(s => s === 0);
+            if (isSilent) { self.postMessage({ status: 'live-chunk-result', text: '' }); return; }
             const result = await transcriber(audioBuffer, transcribeOpts);
             self.postMessage({ status: 'live-chunk-result', text: (result?.text || '').trim() });
         } catch (err) {
