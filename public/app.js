@@ -154,24 +154,7 @@ async function resolveYouTubeClient(url) {
     let title = 'YouTube Video';
     let show = 'YouTube Channel';
 
-    // 1. Try server endpoint first (Render cloud or local PC server)
-    try {
-        const resolveRes = await fetch(`/api/resolve-youtube?url=${encodeURIComponent(url)}`);
-        if (resolveRes.ok) {
-            const contentType = resolveRes.headers.get('content-type') || '';
-            if (contentType.includes('application/json')) {
-                const data = await resolveRes.json();
-                if (data.audioUrl) return data;
-                if (data.error && !data.error.includes('Could not resolve')) {
-                    throw new Error(data.error);
-                }
-            }
-        }
-    } catch (e) {
-        if (e.message && !e.message.includes('Unexpected token')) throw e;
-    }
-
-    // 2. Fetch metadata via YouTube oEmbed (CORS supported)
+    // 1. Fetch metadata via YouTube oEmbed (CORS supported)
     try {
         const oembedRes = await fetch(`https://www.youtube.com/oembed?url=${encodeURIComponent(url)}&format=json`);
         if (oembedRes.ok) {
@@ -181,11 +164,23 @@ async function resolveYouTubeClient(url) {
         }
     } catch (e) {}
 
+    // 2. Try server endpoint (Render cloud or local PC server)
+    try {
+        const resolveRes = await fetch(`/api/resolve-youtube?url=${encodeURIComponent(url)}`);
+        if (resolveRes.ok) {
+            const contentType = resolveRes.headers.get('content-type') || '';
+            if (contentType.includes('application/json')) {
+                const data = await resolveRes.json();
+                if (data.audioUrl || data.transcript) return { ...data, title: data.title || title, show: data.show || show };
+            }
+        }
+    } catch (e) {}
+
     return {
         title,
         show,
         audioUrl: null,
-        error: `Loaded YouTube video: "${title}" (${show}). Please use the "📁 Upload File" tab to process your audio file, or use local PC server!`
+        error: `Loaded YouTube video: "${title}" (${show}). YouTube blocks cloud datacenter IPs from direct video downloading. Please use the "🔍 Search Podcast" tab for instant 1-click episode transcription, or "📁 Upload File" tab!`
     };
 }
 
