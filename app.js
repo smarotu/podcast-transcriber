@@ -536,8 +536,9 @@ transcribeBtn.addEventListener('click', async () => {
             } else {
                 statusTitle.textContent = '▶️ YouTube Video Playing In-App!';
                 progressBarFill.style.width = '100%';
-                progressText.textContent = `Loaded "${currentMetadata.title}". Video is playing in-app above!`;
+                progressText.textContent = `Loaded "${currentMetadata.title}". Video is playing in-app above! Click "🎙️ Transcribe Playing Video Live" below!`;
                 showToast('▶️ Playing YouTube Video In-App!');
+                return;
             }
 
         } else if (activeInputType === 'spotify') {
