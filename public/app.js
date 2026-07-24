@@ -184,6 +184,65 @@ async function resolveYouTubeClient(url) {
     };
 }
 
+// Live Speech Recognition for playing YouTube video audio
+let liveSpeechRecognition = null;
+
+function startLiveSpeechRecognition(langCode = 'pt-PT') {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+        showToast('Speech recognition not supported in this browser. Please use Chrome or Edge.');
+        return;
+    }
+
+    if (liveSpeechRecognition) {
+        try { liveSpeechRecognition.stop(); } catch (e) {}
+    }
+
+    liveSpeechRecognition = new SpeechRecognition();
+    liveSpeechRecognition.continuous = true;
+    liveSpeechRecognition.interimResults = true;
+    liveSpeechRecognition.lang = langCode;
+
+    let finalTranscript = '';
+
+    liveSpeechRecognition.onresult = (event) => {
+        let interim = '';
+        for (let i = event.resultIndex; i < event.results.length; ++i) {
+            if (event.results[i].isFinal) {
+                finalTranscript += event.results[i][0].transcript + ' ';
+            } else {
+                interim += event.results[i][0].transcript;
+            }
+        }
+        rawTranscript = finalTranscript + interim;
+        outputArea.value = formatTranscriptForOutput(rawTranscript);
+        outputCard.style.display = 'block';
+    };
+
+    liveSpeechRecognition.onerror = (err) => {
+        console.error('Speech recognition error:', err.error);
+    };
+
+    liveSpeechRecognition.start();
+    showToast('🎙️ Live Speech Transcription active! Listening to video...');
+}
+
+const btnStartLiveSpeech = document.getElementById('btnStartLiveSpeech');
+if (btnStartLiveSpeech) {
+    btnStartLiveSpeech.addEventListener('click', () => {
+        const langMap = {
+            'pt': 'pt-PT',
+            'en': 'en-US',
+            'es': 'es-ES',
+            'fr': 'fr-FR',
+            'de': 'de-DE'
+        };
+        const selectedLang = languageSelect.value || 'pt';
+        const langCode = langMap[selectedLang] || 'pt-PT';
+        startLiveSpeechRecognition(langCode);
+    });
+}
+
 // Toast notification helper
 function showToast(message) {
     toast.textContent = message;
@@ -437,9 +496,11 @@ transcribeBtn.addEventListener('click', async () => {
             if (videoId) {
                 const youtubePlayerContainer = document.getElementById('youtubePlayerContainer');
                 const youtubeIframe = document.getElementById('youtubeIframe');
+                const youtubeLiveControls = document.getElementById('youtubeLiveControls');
                 if (youtubePlayerContainer && youtubeIframe) {
                     youtubeIframe.src = `https://www.youtube.com/embed/${videoId}?autoplay=1&enablejsapi=1`;
                     youtubePlayerContainer.style.display = 'block';
+                    if (youtubeLiveControls) youtubeLiveControls.style.display = 'block';
                 }
             }
 

@@ -16,7 +16,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="description" content="Transcribe Spotify podcast episodes locally in browser with WebAssembly Whisper for Gemini & AI Chatbots.">
 
-    <link rel="stylesheet" href="styles.css?v=8">
+    <link rel="stylesheet" href="styles.css?v=9">
 </head>
 <body>
     <!-- Background Glow Effects -->
@@ -83,6 +83,12 @@
                 
                 <div id="youtubePlayerContainer" style="display: none; margin-top: 12px; border-radius: 12px; overflow: hidden; background: #000; position: relative; padding-bottom: 56.25%; height: 0; box-shadow: 0 8px 24px rgba(0,0,0,0.5);">
                     <iframe id="youtubeIframe" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: none;" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+                </div>
+
+                <div id="youtubeLiveControls" style="display: none; margin-top: 10px;">
+                    <button type="button" id="btnStartLiveSpeech" style="width: 100%; background: linear-gradient(135deg, #10b981, #059669); color: #fff; border: none; padding: 12px; border-radius: 10px; font-size: 0.95rem; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                        🎙️ Transcribe Playing Video Live (Real-Time AI)
+                    </button>
                 </div>
             </div>
 
@@ -224,6 +230,6 @@
     <!-- Notification Toast -->
     <div class="toast" id="toast">Notification</div>
 
-    <script src="app.js?v=8" type="module"></script>
+    <script src="app.js?v=9" type="module"></script>
 </body>
 </html>
