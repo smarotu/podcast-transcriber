@@ -241,7 +241,57 @@ if (btnStartLiveSpeech) {
         const langCode = langMap[selectedLang] || 'pt-PT';
         startLiveSpeechRecognition(langCode);
     });
+// Google OAuth 2.0 Sign-In for YouTube Captions & Data API
+let ytAccessToken = localStorage.getItem('yt_oauth_token') || null;
+let googleTokenClient = null;
+
+function initYouTubeOAuth() {
+    const btnYtAuth = document.getElementById('btnYtAuth');
+    const ytAuthStatus = document.getElementById('ytAuthStatus');
+
+    if (ytAccessToken) {
+        if (ytAuthStatus) ytAuthStatus.innerHTML = '<span style="color:#10b981; font-weight:600;">✅ YouTube Authenticated</span>';
+        if (btnYtAuth) btnYtAuth.textContent = 'Sign Out';
+    }
+
+    if (btnYtAuth) {
+        btnYtAuth.addEventListener('click', () => {
+            if (ytAccessToken) {
+                ytAccessToken = null;
+                localStorage.removeItem('yt_oauth_token');
+                if (ytAuthStatus) ytAuthStatus.innerHTML = '<span>🔑 Sign in to unlock full YouTube captions & video playback</span>';
+                btnYtAuth.textContent = '🔴 Sign in with YouTube';
+                showToast('Signed out of YouTube.');
+                return;
+            }
+
+            if (typeof google === 'undefined' || !google.accounts || !google.accounts.oauth2) {
+                showToast('Google OAuth SDK loading... Please try again in 2 seconds.');
+                return;
+            }
+
+            if (!googleTokenClient) {
+                googleTokenClient = google.accounts.oauth2.initTokenClient({
+                    client_id: '921191599818-m4b8v6s9k0r8p7q6e3w2a1z0y9x8w7v6.apps.googleusercontent.com',
+                    scope: 'https://www.googleapis.com/auth/youtube.readonly',
+                    callback: (response) => {
+                        if (response.access_token) {
+                            ytAccessToken = response.access_token;
+                            localStorage.setItem('yt_oauth_token', ytAccessToken);
+                            if (ytAuthStatus) ytAuthStatus.innerHTML = '<span style="color:#10b981; font-weight:600;">✅ YouTube Authenticated</span>';
+                            btnYtAuth.textContent = 'Sign Out';
+                            showToast('✅ Successfully signed in to YouTube!');
+                        }
+                    }
+                });
+            }
+            googleTokenClient.requestAccessToken();
+        });
+    }
 }
+
+document.addEventListener('DOMContentLoaded', initYouTubeOAuth);
+setTimeout(initYouTubeOAuth, 1500);
 
 // Toast notification helper
 function showToast(message) {

@@ -16,7 +16,9 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="description" content="Transcribe Spotify podcast episodes locally in browser with WebAssembly Whisper for Gemini & AI Chatbots.">
 
-    <link rel="stylesheet" href="styles.css?v=10">
+    <link rel="stylesheet" href="styles.css?v=11">
+    <!-- Google OAuth / YouTube API SDK -->
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
     <!-- Background Glow Effects -->
@@ -81,6 +83,15 @@
                 <input type="text" id="youtubeUrlInput" class="text-input" placeholder="https://www.youtube.com/watch?v=... or https://youtu.be/..." autocomplete="off">
                 <span style="font-size: 0.78rem; color: var(--text-muted);">Paste any YouTube podcast or video URL to play & transcribe in-app.</span>
                 
+                <div id="youtubeAuthSection" style="margin-top: 10px; display: flex; align-items: center; justify-content: space-between; background: rgba(255,255,255,0.04); padding: 8px 12px; border-radius: 8px;">
+                    <div id="ytAuthStatus" style="font-size: 0.78rem; color: var(--text-muted);">
+                        <span>🔑 Sign in to unlock full YouTube captions & video playback</span>
+                    </div>
+                    <button type="button" id="btnYtAuth" style="background: #ea4335; color: #fff; border: none; padding: 6px 12px; border-radius: 6px; font-size: 0.8rem; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px;">
+                        <span>🔴 Sign in with YouTube</span>
+                    </button>
+                </div>
+
                 <div id="youtubePlayerContainer" style="display: none; margin-top: 12px; border-radius: 12px; overflow: hidden; background: #000; position: relative; padding-bottom: 56.25%; height: 0; box-shadow: 0 8px 24px rgba(0,0,0,0.5);">
                     <iframe id="youtubeIframe" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: none;" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
                 </div>
@@ -230,6 +241,6 @@
     <!-- Notification Toast -->
     <div class="toast" id="toast">Notification</div>
 
-    <script src="app.js?v=10" type="module"></script>
+    <script src="app.js?v=11" type="module"></script>
 </body>
 </html>
