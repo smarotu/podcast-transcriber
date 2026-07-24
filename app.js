@@ -164,7 +164,50 @@ async function resolveYouTubeClient(url) {
         }
     } catch (e) {}
 
-    // 2. Try server endpoint (Render cloud or local PC server)
+    // 2. If signed in with YouTube OAuth access token, fetch official captions via YouTube Data API
+    const ytMatch = url.match(/(?:v=|\/shorts\/|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
+    const videoId = ytMatch ? ytMatch[1] : null;
+
+    if (ytAccessToken && videoId) {
+        try {
+            const listRes = await fetch(`https://www.googleapis.com/youtube/v3/captions?videoId=${videoId}&part=snippet`, {
+                headers: { Authorization: `Bearer ${ytAccessToken}` }
+            });
+            if (listRes.ok) {
+                const listData = await listRes.json();
+                if (listData.items && listData.items.length > 0) {
+                    const captionItem = listData.items.find(i => i.snippet.language === 'pt') || listData.items[0];
+                    const captionId = captionItem.id;
+                    const capRes = await fetch(`https://www.googleapis.com/youtube/v3/captions/${captionId}?tfmt=vtt`, {
+                        headers: { Authorization: `Bearer ${ytAccessToken}` }
+                    });
+                    if (capRes.ok) {
+                        const vttText = await capRes.text();
+                        const cleanTranscript = vttText
+                            .replace(/WEBVTT[\s\S]*?\n\n/, '')
+                            .replace(/\d{2}:\d{2}:\d{2}\.\d{3} --> \d{2}:\d{2}:\d{2}\.\d{3}/g, '')
+                            .replace(/<[^>]*>/g, '')
+                            .replace(/^\d+$/gm, '')
+                            .split('\n')
+                            .filter(l => l.trim())
+                            .join(' ');
+
+                        if (cleanTranscript.trim()) {
+                            return {
+                                title,
+                                show,
+                                transcript: cleanTranscript
+                            };
+                        }
+                    }
+                }
+            }
+        } catch (authCapErr) {
+            console.error('Authenticated caption fetch error:', authCapErr);
+        }
+    }
+
+    // 3. Try server endpoint (Render cloud or local PC server)
     try {
         const resolveRes = await fetch(`/api/resolve-youtube?url=${encodeURIComponent(url)}`);
         if (resolveRes.ok) {
@@ -180,7 +223,7 @@ async function resolveYouTubeClient(url) {
         title,
         show,
         audioUrl: null,
-        error: `Loaded YouTube video: "${title}" (${show}). YouTube blocks cloud datacenter IPs from direct video downloading. Please use the "🔍 Search Podcast" tab for instant 1-click episode transcription, or "📁 Upload File" tab!`
+        error: `Loaded YouTube video: "${title}" (${show}). YouTube blocks cloud datacenter IPs from direct video downloading. Please click "🎙️ Transcribe Playing Video Live" button above!`
     };
 }
 
