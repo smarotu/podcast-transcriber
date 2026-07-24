@@ -255,7 +255,8 @@ function initYouTubeOAuth() {
     const btnSaveClientId = document.getElementById('btnSaveClientId');
 
     if (googleClientIdInput) {
-        googleClientIdInput.value = localStorage.getItem('yt_client_id') || '455784834087-2s7kkhtsma04vl3d7iba6ubhaa5alr4t.apps.googleusercontent.com';
+        const savedId = localStorage.getItem('yt_client_id');
+        googleClientIdInput.value = (savedId && savedId.trim()) ? savedId.trim() : '455784834087-2s7kkhtsma04vl3d7iba6ubhaa5alr4t.apps.googleusercontent.com';
     }
 
     if (btnSaveClientId) {
