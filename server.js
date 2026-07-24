@@ -24,7 +24,9 @@ const MIME_TYPES = {
 };
 
 const { execFile } = require('child_process');
-const YT_DLP_PATH = path.join(__dirname, 'bin', 'yt-dlp.exe');
+const YT_DLP_PATH = process.platform === 'win32'
+    ? (fs.existsSync(path.join(__dirname, 'bin', 'yt-dlp.exe')) ? path.join(__dirname, 'bin', 'yt-dlp.exe') : 'yt-dlp')
+    : (fs.existsSync('/usr/local/bin/yt-dlp') ? '/usr/local/bin/yt-dlp' : 'yt-dlp');
 const CACHE_DIR = path.join(__dirname, '.cache');
 
 if (!fs.existsSync(CACHE_DIR)) fs.mkdirSync(CACHE_DIR, { recursive: true });
@@ -466,31 +468,29 @@ const server = http.createServer(async (req, res) => {
     }
 
     // Static File Serving
-    let filePath = path.join(PUBLIC_DIR, pathname === '/' ? 'index.html' : pathname);
-    
-    if (!filePath.startsWith(PUBLIC_DIR)) {
-        res.writeHead(403, { 'Content-Type': 'text/plain' });
-        res.end('Forbidden');
-        return;
+    let reqPath = pathname === '/' ? 'index.html' : pathname.replace(/^\//, '');
+    let filePath = path.join(PUBLIC_DIR, reqPath);
+
+    if (!fs.existsSync(filePath) || !fs.statSync(filePath).isFile()) {
+        filePath = path.join(__dirname, reqPath);
+    }
+    if (!fs.existsSync(filePath) || !fs.statSync(filePath).isFile()) {
+        filePath = fs.existsSync(path.join(PUBLIC_DIR, 'index.html'))
+            ? path.join(PUBLIC_DIR, 'index.html')
+            : path.join(__dirname, 'index.html');
     }
 
-    fs.stat(filePath, (err, stats) => {
-        if (err || !stats.isFile()) {
-            filePath = path.join(PUBLIC_DIR, 'index.html');
+    const ext = path.extname(filePath).toLowerCase();
+    const contentType = MIME_TYPES[ext] || 'application/octet-stream';
+
+    fs.readFile(filePath, (readErr, content) => {
+        if (readErr) {
+            res.writeHead(500, { 'Content-Type': 'text/plain' });
+            res.end('Internal Server Error');
+        } else {
+            res.writeHead(200, { 'Content-Type': contentType });
+            res.end(content);
         }
-
-        const ext = path.extname(filePath).toLowerCase();
-        const contentType = MIME_TYPES[ext] || 'application/octet-stream';
-
-        fs.readFile(filePath, (readErr, content) => {
-            if (readErr) {
-                res.writeHead(500, { 'Content-Type': 'text/plain' });
-                res.end('Internal Server Error');
-            } else {
-                res.writeHead(200, { 'Content-Type': contentType });
-                res.end(content);
-            }
-        });
     });
 });
 
