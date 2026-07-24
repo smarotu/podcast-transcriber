@@ -272,7 +272,7 @@ async function resolveYouTubeClient(url) {
 }
 
 // Live Speech Recognition for playing YouTube video audio
-let liveSpeechRecognition = null;
+let isLiveListening = false;
 
 function startLiveSpeechRecognition(langCode = 'pt-PT') {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -281,16 +281,45 @@ function startLiveSpeechRecognition(langCode = 'pt-PT') {
         return;
     }
 
+    const outArea = document.getElementById('outputArea');
+    const outCard = document.getElementById('outputCard');
+    const btnStartLiveSpeech = document.getElementById('btnStartLiveSpeech');
+
+    if (isLiveListening && liveSpeechRecognition) {
+        isLiveListening = false;
+        try { liveSpeechRecognition.stop(); } catch (e) {}
+        if (btnStartLiveSpeech) {
+            btnStartLiveSpeech.innerHTML = '🎙️ Transcribe Playing Video Live (Real-Time AI)';
+            btnStartLiveSpeech.style.background = 'linear-gradient(135deg, #10b981, #059669)';
+        }
+        showToast('Stopped live speech listener.');
+        return;
+    }
+
     if (liveSpeechRecognition) {
         try { liveSpeechRecognition.stop(); } catch (e) {}
     }
 
+    isLiveListening = true;
     liveSpeechRecognition = new SpeechRecognition();
     liveSpeechRecognition.continuous = true;
     liveSpeechRecognition.interimResults = true;
     liveSpeechRecognition.lang = langCode;
 
     let finalTranscript = '';
+
+    if (outCard) {
+        outCard.style.display = 'block';
+        outCard.scrollIntoView({ behavior: 'smooth' });
+    }
+    if (outArea && !outArea.value) {
+        outArea.value = `PODCAST TRANSCRIPT\nTitle: ${currentMetadata.title || 'YouTube Video'}\nStatus: 🎙️ Listening live to video audio... Spoken text will appear here in real-time.\n==================================================\n`;
+    }
+
+    if (btnStartLiveSpeech) {
+        btnStartLiveSpeech.innerHTML = '🔴 Listening Live... (Click to Stop)';
+        btnStartLiveSpeech.style.background = 'linear-gradient(135deg, #ef4444, #dc2626)';
+    }
 
     liveSpeechRecognition.onresult = (event) => {
         let interim = '';
@@ -302,21 +331,34 @@ function startLiveSpeechRecognition(langCode = 'pt-PT') {
             }
         }
         rawTranscript = finalTranscript + interim;
-        const outArea = document.getElementById('outputArea');
-        const outCard = document.getElementById('outputCard');
         if (outArea) outArea.value = formatTranscriptForOutput(rawTranscript);
-        if (outCard) {
-            outCard.style.display = 'block';
-            outCard.scrollIntoView({ behavior: 'smooth' });
-        }
+        if (outCard) outCard.style.display = 'block';
     };
 
     liveSpeechRecognition.onerror = (err) => {
         console.error('Speech recognition error:', err.error);
+        if (err.error === 'not-allowed' || err.error === 'service-not-allowed') {
+            showToast('⚠️ Microphone permission blocked! Please allow microphone access in browser address bar.');
+        } else if (err.error === 'no-speech') {
+            // Silence detected, will auto-restart via onend
+        } else {
+            showToast(`Speech recognition notice: ${err.error}`);
+        }
     };
 
-    liveSpeechRecognition.start();
-    showToast('🎙️ Live Speech Transcription active! Listening to video...');
+    liveSpeechRecognition.onend = () => {
+        if (isLiveListening) {
+            try { liveSpeechRecognition.start(); } catch (e) {}
+        }
+    };
+
+    try {
+        liveSpeechRecognition.start();
+        showToast('🎙️ Live Speech Transcription active! Listening to video...');
+    } catch (e) {
+        console.error('Start error:', e);
+        showToast('Could not start live speech recognition: ' + e.message);
+    }
 }
 
 const btnStartLiveSpeech = document.getElementById('btnStartLiveSpeech');
