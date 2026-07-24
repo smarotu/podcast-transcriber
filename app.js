@@ -114,6 +114,25 @@ function handleWorkerMessage(data) {
             progressText.textContent = `Segment ${data.chunkIndex} of ${data.totalChunks} (${data.progress}%)`;
             break;
 
+        case 'live-chunk-result':
+            if (data.text) {
+                const transcriptCard = document.getElementById('transcriptCard');
+                const transcriptBox = document.getElementById('transcriptBox');
+                if (transcriptCard) transcriptCard.style.display = 'block';
+                if (transcriptBox) {
+                    const currentText = transcriptBox.textContent || '';
+                    const header = currentText.includes('==================================================') 
+                        ? currentText.split('==================================================')[0] + '==================================================\n'
+                        : '';
+                    const body = currentText.includes('==================================================') 
+                        ? currentText.split('==================================================')[1] 
+                        : currentText;
+                    transcriptBox.textContent = header + (body ? body + '\n\n' : '') + data.text;
+                    transcriptBox.scrollTop = transcriptBox.scrollHeight;
+                }
+            }
+            break;
+
         case 'partial':
             if (data.text) {
                 transcriptCard.style.display = 'block';
@@ -272,97 +291,85 @@ async function resolveYouTubeClient(url) {
 }
 
 // Live Speech Recognition for playing YouTube video audio
-let liveSpeechRecognition = null;
-let isLiveListening = false;
+let liveMediaRecorder = null;
+let liveAudioStream = null;
+let liveChunkInterval = null;
 
-function startLiveSpeechRecognition(langCode = 'pt-PT') {
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRecognition) {
-        showToast('Speech recognition not supported in this browser. Please use Chrome or Edge.');
-        return;
-    }
-
-    const outArea = document.getElementById('outputArea');
-    const outCard = document.getElementById('outputCard');
+async function startLiveSpeechRecognition(langCode = 'auto') {
     const btnStartLiveSpeech = document.getElementById('btnStartLiveSpeech');
+    const transcriptCard = document.getElementById('transcriptCard');
+    const transcriptBox = document.getElementById('transcriptBox');
 
-    if (isLiveListening && liveSpeechRecognition) {
+    if (isLiveListening) {
         isLiveListening = false;
-        try { liveSpeechRecognition.stop(); } catch (e) {}
+        if (liveMediaRecorder && liveMediaRecorder.state !== 'inactive') liveMediaRecorder.stop();
+        if (liveAudioStream) liveAudioStream.getTracks().forEach(t => t.stop());
+        if (liveChunkInterval) clearInterval(liveChunkInterval);
         if (btnStartLiveSpeech) {
-            btnStartLiveSpeech.innerHTML = '🎙️ Transcribe Playing Video Live (Real-Time AI)';
+            btnStartLiveSpeech.innerHTML = '🎙️ Transcribe Internal Tab Audio (Real-Time AI)';
             btnStartLiveSpeech.style.background = 'linear-gradient(135deg, #10b981, #059669)';
         }
-        showToast('Stopped live speech listener.');
+        showToast('Stopped internal audio recording.');
         return;
     }
 
-    if (liveSpeechRecognition) {
-        try { liveSpeechRecognition.stop(); } catch (e) {}
-    }
-
-    isLiveListening = true;
-    liveSpeechRecognition = new SpeechRecognition();
-    liveSpeechRecognition.continuous = true;
-    liveSpeechRecognition.interimResults = true;
-    liveSpeechRecognition.lang = langCode;
-
-    let finalTranscript = '';
-
-    if (outCard) {
-        outCard.style.display = 'block';
-        outCard.scrollIntoView({ behavior: 'smooth' });
-    }
-    if (outArea && !outArea.value) {
-        outArea.value = `PODCAST TRANSCRIPT\nTitle: ${currentMetadata.title || 'YouTube Video'}\nStatus: 🎙️ Listening live to video audio... Spoken text will appear here in real-time.\n==================================================\n`;
-    }
-
-    if (btnStartLiveSpeech) {
-        btnStartLiveSpeech.innerHTML = '🔴 Listening Live... (Click to Stop)';
-        btnStartLiveSpeech.style.background = 'linear-gradient(135deg, #ef4444, #dc2626)';
-    }
-
-    liveSpeechRecognition.onresult = (event) => {
-        let interim = '';
-        for (let i = event.resultIndex; i < event.results.length; ++i) {
-            if (event.results[i].isFinal) {
-                finalTranscript += event.results[i][0].transcript + ' ';
-            } else {
-                interim += event.results[i][0].transcript;
-            }
-        }
-        rawTranscript = finalTranscript + interim;
-        const currentText = outArea ? outArea.value : '';
-        const header = currentText.includes('==================================================') 
-            ? currentText.split('==================================================')[0] + '==================================================\n'
-            : '';
-        if (outArea) outArea.value = header + rawTranscript;
-        if (outCard) outCard.style.display = 'block';
-    };
-
-    liveSpeechRecognition.onerror = (err) => {
-        console.error('Speech recognition error:', err.error);
-        if (err.error === 'not-allowed' || err.error === 'service-not-allowed') {
-            showToast('⚠️ Microphone permission blocked! Please allow microphone access in browser address bar.');
-        } else if (err.error === 'no-speech') {
-            // Silence detected, will auto-restart via onend
-        } else {
-            showToast(`Speech recognition notice: ${err.error}`);
-        }
-    };
-
-    liveSpeechRecognition.onend = () => {
-        if (isLiveListening) {
-            try { liveSpeechRecognition.start(); } catch (e) {}
-        }
-    };
-
     try {
-        liveSpeechRecognition.start();
-        showToast('🎙️ Live Speech Transcription active! Listening to video...');
-    } catch (e) {
-        console.error('Start error:', e);
-        showToast('Could not start live speech recognition: ' + e.message);
+        if (!worker) initWorker();
+        liveAudioStream = await navigator.mediaDevices.getDisplayMedia({ 
+            video: true, 
+            audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false } 
+        });
+        
+        // Ensure user actually shared audio
+        if (liveAudioStream.getAudioTracks().length === 0) {
+            liveAudioStream.getTracks().forEach(t => t.stop());
+            showToast('⚠️ You must check "Share tab audio" in the popup!');
+            return;
+        }
+
+        isLiveListening = true;
+        if (transcriptCard) {
+            transcriptCard.style.display = 'block';
+            transcriptCard.scrollIntoView({ behavior: 'smooth' });
+        }
+        if (transcriptBox && !transcriptBox.textContent) {
+            transcriptBox.textContent = `PODCAST TRANSCRIPT\nTitle: ${currentMetadata.title || 'YouTube Video'}\nStatus: 🔴 Listening to Internal Tab Audio via Whisper AI...\n==================================================\n`;
+        }
+
+        if (btnStartLiveSpeech) {
+            btnStartLiveSpeech.innerHTML = '🔴 Recording Internal Audio... (Click to Stop)';
+            btnStartLiveSpeech.style.background = 'linear-gradient(135deg, #ef4444, #dc2626)';
+        }
+
+        liveMediaRecorder = new MediaRecorder(liveAudioStream);
+        
+        liveMediaRecorder.ondataavailable = async (e) => {
+            if (e.data.size > 0 && isLiveListening && worker) {
+                const arrayBuffer = await e.data.arrayBuffer();
+                const audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 });
+                const decodedBuffer = await audioContext.decodeAudioData(arrayBuffer);
+                const audioData = decodedBuffer.getChannelData(0);
+                
+                worker.postMessage({
+                    action: 'transcribe_live_chunk',
+                    modelName: modelSelect.value,
+                    language: langCode,
+                    audioBuffer: audioData
+                });
+            }
+        };
+
+        liveMediaRecorder.start(5000); // Record in 5-second chunks
+
+        liveAudioStream.getVideoTracks()[0].onended = () => {
+            if (isLiveListening) startLiveSpeechRecognition(langCode);
+        };
+        
+        showToast('🎙️ Live Internal Audio Transcription started!');
+
+    } catch (err) {
+        console.error('DisplayMedia error:', err);
+        showToast('Could not start screen audio capture: ' + err.message);
     }
 }
 
@@ -746,9 +753,13 @@ transcribeBtn.addEventListener('click', async () => {
 
             if (resolveData.transcript) {
                 rawTranscript = resolveData.transcript;
-                outputArea.value = formatTranscriptForOutput(rawTranscript);
-                outputCard.style.display = 'block';
-                outputCard.scrollIntoView({ behavior: 'smooth' });
+                const transcriptCard = document.getElementById('transcriptCard');
+                const transcriptBox = document.getElementById('transcriptBox');
+                if (transcriptBox) transcriptBox.textContent = `PODCAST TRANSCRIPT\nTitle: ${currentMetadata.title}\nStatus: Instant YouTube Captions Loaded\n==================================================\n\n${rawTranscript}`;
+                if (transcriptCard) {
+                    transcriptCard.style.display = 'block';
+                    transcriptCard.scrollIntoView({ behavior: 'smooth' });
+                }
                 showToast('✨ Instant YouTube Captions Loaded!');
                 saveToLibrary(currentMetadata.title, currentMetadata.show, rawTranscript, url);
                 progressCard.style.display = 'none';

@@ -18,6 +18,20 @@ async function getTranscriber(modelName, onProgress) {
 
 self.addEventListener('message', async (event) => {
     let { action, modelName = 'Xenova/whisper-tiny', language = 'auto', audioBuffer } = event.data;
+    if (action === 'transcribe_live_chunk') {
+        try {
+            if (modelName.endsWith('.en')) modelName = modelName.replace('.en', '');
+            const transcriber = await getTranscriber(modelName, () => {});
+            const transcribeOpts = { task: 'transcribe', no_repeat_ngram_size: 5, repetition_penalty: 1.3, temperature: 0.0 };
+            if (language && language !== 'auto') transcribeOpts.language = language;
+            const result = await transcriber(audioBuffer, transcribeOpts);
+            self.postMessage({ status: 'live-chunk-result', text: (result?.text || '').trim() });
+        } catch (err) {
+            console.error('Live chunk error:', err);
+        }
+        return;
+    }
+
     if (action !== 'transcribe') return;
 
     try {
