@@ -40,8 +40,9 @@ function resolveYouTubeUrl(ytUrl) {
 
         execFile(cmd, args, { maxBuffer: 50 * 1024 * 1024 }, (err, stdout, stderr) => {
             if (err) {
-                console.error('yt-dlp JSON error:', stderr || err.message || err);
-                return resolve({ error: 'Could not resolve YouTube video metadata: ' + (stderr || err.message || 'Extract failed') });
+                const errMsg = (stderr || err.message || 'Extract failed').slice(0, 300);
+                console.error('yt-dlp JSON error:', errMsg);
+                return resolve({ error: 'yt-dlp error: ' + errMsg });
             }
             try {
                 const json = JSON.parse(stdout);
