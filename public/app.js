@@ -351,33 +351,46 @@ async function startLiveSpeechRecognition(langCode = 'auto') {
 
         // Pick a supported audio-only mimeType
         const mimeType = ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg'].find(m => MediaRecorder.isTypeSupported(m)) || '';
-        liveMediaRecorder = new MediaRecorder(audioOnlyStream, mimeType ? { mimeType } : {});
+        const recorderOpts = mimeType ? { mimeType } : {};
         
-        // Pre-warm Whisper model with a silent buffer so first real chunk doesn't fail
+        // Pre-warm Whisper model with a silent buffer so first real chunk loads the model
         const silentBuffer = new Float32Array(16000); // 1s of silence at 16kHz
         worker.postMessage({ action: 'transcribe_live_chunk', modelName: modelSelect.value, language: langCode, audioBuffer: silentBuffer });
 
-        liveMediaRecorder.ondataavailable = async (e) => {
-            if (e.data.size > 0 && isLiveListening && worker) {
-                try {
-                    const arrayBuffer = await e.data.arrayBuffer();
-                    const audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 });
-                    const decodedBuffer = await audioContext.decodeAudioData(arrayBuffer);
-                    const audioData = decodedBuffer.getChannelData(0);
-                    
-                    worker.postMessage({
-                        action: 'transcribe_live_chunk',
-                        modelName: modelSelect.value,
-                        language: langCode,
-                        audioBuffer: audioData
-                    });
-                } catch (decodeErr) {
-                    console.warn('Live chunk decode error (skipping):', decodeErr.message);
-                }
+        // Use stop/restart cycle so each recording is a complete, self-contained WebM file
+        // (timeslice chunks often lack full headers and fail to decode)
+        async function processAndSendChunk(blob) {
+            if (!isLiveListening || !worker || blob.size === 0) return;
+            try {
+                const arrayBuffer = await blob.arrayBuffer();
+                const audioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 });
+                const decodedBuf = await audioCtx.decodeAudioData(arrayBuffer);
+                audioCtx.close();
+                const audioData = decodedBuf.getChannelData(0);
+                worker.postMessage({ action: 'transcribe_live_chunk', modelName: modelSelect.value, language: langCode, audioBuffer: audioData });
+            } catch (decodeErr) {
+                console.warn('Live chunk decode error (skipping):', decodeErr.message);
             }
-        };
+        }
 
-        liveMediaRecorder.start(7000); // 7-second chunks for better transcription quality
+        function startNextChunkRecorder() {
+            if (!isLiveListening) return;
+            const chunks = [];
+            const rec = new MediaRecorder(audioOnlyStream, recorderOpts);
+            liveMediaRecorder = rec;
+            rec.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
+            rec.onstop = () => {
+                const blob = new Blob(chunks, { type: mimeType || 'audio/webm' });
+                processAndSendChunk(blob);
+                // Start next 7-second recording immediately after this one stops
+                if (isLiveListening) setTimeout(startNextChunkRecorder, 100);
+            };
+            rec.start();
+            // Stop after 7 seconds to create a complete chunk
+            setTimeout(() => { if (rec.state !== 'inactive') rec.stop(); }, 7000);
+        }
+
+        startNextChunkRecorder();
         
         showToast('🎙️ Live Internal Audio Transcription started!');
 
