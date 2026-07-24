@@ -35,8 +35,8 @@ function resolveYouTubeUrl(ytUrl) {
     return new Promise((resolve) => {
         const cmd = process.platform === 'win32' ? YT_DLP_PATH : 'python3';
         const args = process.platform === 'win32'
-            ? ['--dump-json', '--no-warnings', '--no-playlist', '--extractor-args', 'youtube:player_client=android,web', ytUrl]
-            : [YT_DLP_PATH, '--dump-json', '--no-warnings', '--no-playlist', '--extractor-args', 'youtube:player_client=android,web', ytUrl];
+            ? ['--dump-json', '--no-warnings', '--no-playlist', '--extractor-args', 'youtube:player_client=ios,mweb', ytUrl]
+            : [YT_DLP_PATH, '--dump-json', '--no-warnings', '--no-playlist', '--extractor-args', 'youtube:player_client=ios,mweb', ytUrl];
 
         execFile(cmd, args, { maxBuffer: 50 * 1024 * 1024 }, (err, stdout, stderr) => {
             if (err) {
