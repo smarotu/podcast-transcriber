@@ -150,6 +150,38 @@ function handleWorkerMessage(data) {
     }
 }
 
+async function fetchPublicYouTubeCaptions(videoId) {
+    const langs = ['pt', 'pt-PT', 'pt-BR', 'en'];
+    for (const lang of langs) {
+        try {
+            const timedtextUrl = `https://corsproxy.io/?${encodeURIComponent(`https://www.youtube.com/api/timedtext?v=${videoId}&lang=${lang}&fmt=json3`)}`;
+            const res = await fetch(timedtextUrl);
+            if (res.ok) {
+                const data = await res.json();
+                if (data.events && data.events.length > 0) {
+                    const lines = [];
+                    for (const ev of data.events) {
+                        if (ev.segs) {
+                            const text = ev.segs.map(s => s.utf8).join('').trim();
+                            if (text && text !== '\n') {
+                                const sec = Math.floor((ev.tStartMs || 0) / 1000);
+                                const min = Math.floor(sec / 60);
+                                const remSec = sec % 60;
+                                const timeStr = `[${min}:${remSec < 10 ? '0' : ''}${remSec}]`;
+                                lines.push(`${timeStr} ${text}`);
+                            }
+                        }
+                    }
+                    if (lines.length > 0) {
+                        return lines.join('\n');
+                    }
+                }
+            }
+        } catch (e) {}
+    }
+    return null;
+}
+
 async function resolveYouTubeClient(url) {
     let title = 'YouTube Video';
     let show = 'YouTube Channel';
@@ -164,10 +196,22 @@ async function resolveYouTubeClient(url) {
         }
     } catch (e) {}
 
-    // 2. If signed in with YouTube OAuth access token, fetch official captions via YouTube Data API
     const ytMatch = url.match(/(?:v=|\/shorts\/|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
     const videoId = ytMatch ? ytMatch[1] : null;
 
+    // 2. Client-side public timedtext caption extraction (Instant 1-second captions)
+    if (videoId) {
+        const publicCap = await fetchPublicYouTubeCaptions(videoId);
+        if (publicCap) {
+            return {
+                title,
+                show,
+                transcript: publicCap
+            };
+        }
+    }
+
+    // 3. Try authenticated YouTube Data API (if token present)
     if (ytAccessToken && videoId) {
         try {
             const listRes = await fetch(`https://www.googleapis.com/youtube/v3/captions?videoId=${videoId}&part=snippet`, {
@@ -207,7 +251,7 @@ async function resolveYouTubeClient(url) {
         }
     }
 
-    // 3. Try server endpoint (Render cloud or local PC server)
+    // 4. Try server endpoint (Render cloud or local PC server)
     try {
         const resolveRes = await fetch(`/api/resolve-youtube?url=${encodeURIComponent(url)}`);
         if (resolveRes.ok) {
@@ -223,7 +267,7 @@ async function resolveYouTubeClient(url) {
         title,
         show,
         audioUrl: null,
-        error: `Loaded YouTube video: "${title}" (${show}). YouTube blocks cloud datacenter IPs from direct video downloading. Please click "🎙️ Transcribe Playing Video Live" button above!`
+        error: `Loaded YouTube video: "${title}" (${show}). Please click "🎙️ Transcribe Playing Video Live" button above!`
     };
 }
 
