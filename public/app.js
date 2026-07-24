@@ -468,13 +468,16 @@ transcribeBtn.addEventListener('click', async () => {
                 return;
             }
 
-            if (resolveData.error || !resolveData.audioUrl) {
-                throw new Error(resolveData.error || 'Could not extract audio stream from this YouTube link on static mode. Please upload the audio file or paste direct MP3 link!');
+            if (resolveData.audioUrl) {
+                audioUrlToFetch = currentMetadata.audioUrl.startsWith('/api/') ? currentMetadata.audioUrl : `/api/proxy-audio?url=${encodeURIComponent(currentMetadata.audioUrl)}`;
+                audioPlayer.src = audioUrlToFetch;
+                audioPlayer.style.display = 'block';
+            } else {
+                statusTitle.textContent = '▶️ YouTube Video Playing In-App!';
+                progressBarFill.style.width = '100%';
+                progressText.textContent = `Loaded "${currentMetadata.title}". Video is playing in-app above!`;
+                showToast('▶️ Playing YouTube Video In-App!');
             }
-
-            audioUrlToFetch = currentMetadata.audioUrl.startsWith('/api/') ? currentMetadata.audioUrl : `/api/proxy-audio?url=${encodeURIComponent(currentMetadata.audioUrl)}`;
-            audioPlayer.src = audioUrlToFetch;
-            audioPlayer.style.display = 'block';
 
         } else if (activeInputType === 'spotify') {
             const url = spotifyInput.value.trim();
