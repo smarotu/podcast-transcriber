@@ -290,10 +290,11 @@ async function resolveYouTubeClient(url) {
     };
 }
 
-// Live Speech Recognition for playing YouTube video audio
+// Live Internal Audio Tab Capture state
 let liveMediaRecorder = null;
 let liveAudioStream = null;
 let liveChunkInterval = null;
+let isLiveListening = false;
 
 async function startLiveSpeechRecognition(langCode = 'auto') {
     const btnStartLiveSpeech = document.getElementById('btnStartLiveSpeech');
