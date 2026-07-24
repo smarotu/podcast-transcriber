@@ -316,6 +316,7 @@ async function startLiveSpeechRecognition(langCode = 'auto') {
 
     try {
         if (!worker) initWorker();
+
         liveAudioStream = await navigator.mediaDevices.getDisplayMedia({ 
             video: true, 
             audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false } 
@@ -328,12 +329,15 @@ async function startLiveSpeechRecognition(langCode = 'auto') {
             return;
         }
 
+        // Stop video tracks — we only need audio
+        liveAudioStream.getVideoTracks().forEach(t => t.stop());
+
         isLiveListening = true;
         if (transcriptCard) {
             transcriptCard.style.display = 'block';
             transcriptCard.scrollIntoView({ behavior: 'smooth' });
         }
-        if (transcriptBox && !transcriptBox.textContent) {
+        if (transcriptBox) {
             transcriptBox.textContent = `PODCAST TRANSCRIPT\nTitle: ${currentMetadata.title || 'YouTube Video'}\nStatus: 🔴 Listening to Internal Tab Audio via Whisper AI...\n==================================================\n`;
         }
 
@@ -342,35 +346,49 @@ async function startLiveSpeechRecognition(langCode = 'auto') {
             btnStartLiveSpeech.style.background = 'linear-gradient(135deg, #ef4444, #dc2626)';
         }
 
-        liveMediaRecorder = new MediaRecorder(liveAudioStream);
+        // Build an audio-only MediaStream to avoid video container issues
+        const audioOnlyStream = new MediaStream(liveAudioStream.getAudioTracks());
+
+        // Pick a supported audio-only mimeType
+        const mimeType = ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg'].find(m => MediaRecorder.isTypeSupported(m)) || '';
+        liveMediaRecorder = new MediaRecorder(audioOnlyStream, mimeType ? { mimeType } : {});
         
+        // Pre-warm Whisper model with a silent buffer so first real chunk doesn't fail
+        const silentBuffer = new Float32Array(16000); // 1s of silence at 16kHz
+        worker.postMessage({ action: 'transcribe_live_chunk', modelName: modelSelect.value, language: langCode, audioBuffer: silentBuffer });
+
         liveMediaRecorder.ondataavailable = async (e) => {
             if (e.data.size > 0 && isLiveListening && worker) {
-                const arrayBuffer = await e.data.arrayBuffer();
-                const audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 });
-                const decodedBuffer = await audioContext.decodeAudioData(arrayBuffer);
-                const audioData = decodedBuffer.getChannelData(0);
-                
-                worker.postMessage({
-                    action: 'transcribe_live_chunk',
-                    modelName: modelSelect.value,
-                    language: langCode,
-                    audioBuffer: audioData
-                });
+                try {
+                    const arrayBuffer = await e.data.arrayBuffer();
+                    const audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 });
+                    const decodedBuffer = await audioContext.decodeAudioData(arrayBuffer);
+                    const audioData = decodedBuffer.getChannelData(0);
+                    
+                    worker.postMessage({
+                        action: 'transcribe_live_chunk',
+                        modelName: modelSelect.value,
+                        language: langCode,
+                        audioBuffer: audioData
+                    });
+                } catch (decodeErr) {
+                    console.warn('Live chunk decode error (skipping):', decodeErr.message);
+                }
             }
         };
 
-        liveMediaRecorder.start(5000); // Record in 5-second chunks
-
-        liveAudioStream.getVideoTracks()[0].onended = () => {
-            if (isLiveListening) startLiveSpeechRecognition(langCode);
-        };
+        liveMediaRecorder.start(7000); // 7-second chunks for better transcription quality
         
         showToast('🎙️ Live Internal Audio Transcription started!');
 
     } catch (err) {
+        isLiveListening = false;
         console.error('DisplayMedia error:', err);
         showToast('Could not start screen audio capture: ' + err.message);
+        if (btnStartLiveSpeech) {
+            btnStartLiveSpeech.innerHTML = '🎙️ Transcribe Internal Tab Audio (Real-Time AI)';
+            btnStartLiveSpeech.style.background = 'linear-gradient(135deg, #10b981, #059669)';
+        }
     }
 }
 
