@@ -3,13 +3,13 @@
   "name": "Podcast Transcriber AI",
   "icons": [
     {
-      "src": "/icon.png",
+      "src": "./icon.png",
       "type": "image/png",
       "sizes": "512x512",
       "purpose": "any maskable"
     }
   ],
-  "start_url": "/",
+  "start_url": "./",
   "background_color": "#0b0f19",
   "theme_color": "#10b981",
   "display": "standalone",
