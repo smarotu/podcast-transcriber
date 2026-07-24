@@ -431,7 +431,19 @@ transcribeBtn.addEventListener('click', async () => {
                 return;
             }
 
-            statusTitle.textContent = 'Resolving YouTube audio metadata...';
+            const ytMatch = url.match(/(?:v=|\/shorts\/|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
+            const videoId = ytMatch ? ytMatch[1] : null;
+
+            if (videoId) {
+                const youtubePlayerContainer = document.getElementById('youtubePlayerContainer');
+                const youtubeIframe = document.getElementById('youtubeIframe');
+                if (youtubePlayerContainer && youtubeIframe) {
+                    youtubeIframe.src = `https://www.youtube.com/embed/${videoId}?autoplay=1&enablejsapi=1`;
+                    youtubePlayerContainer.style.display = 'block';
+                }
+            }
+
+            statusTitle.textContent = 'Resolving YouTube audio metadata & playing video in-app...';
             const resolveData = await resolveYouTubeClient(url);
 
             currentMetadata = {

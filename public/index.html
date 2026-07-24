@@ -16,7 +16,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="description" content="Transcribe Spotify podcast episodes locally in browser with WebAssembly Whisper for Gemini & AI Chatbots.">
 
-    <link rel="stylesheet" href="styles.css?v=6">
+    <link rel="stylesheet" href="styles.css?v=7">
 </head>
 <body>
     <!-- Background Glow Effects -->
@@ -76,10 +76,14 @@
                 <span style="font-size: 0.78rem; color: var(--text-muted);">Paste Spotify podcast episode URL.</span>
             </div>
 
-            <!-- YouTube URL Input -->
+            <!-- YouTube URL Input & In-App Player -->
             <div class="input-wrapper" id="inputSectionYoutube" style="display: none;">
                 <input type="text" id="youtubeUrlInput" class="text-input" placeholder="https://www.youtube.com/watch?v=... or https://youtu.be/..." autocomplete="off">
-                <span style="font-size: 0.78rem; color: var(--text-muted);">Paste any YouTube podcast or video URL.</span>
+                <span style="font-size: 0.78rem; color: var(--text-muted);">Paste any YouTube podcast or video URL to play & transcribe in-app.</span>
+                
+                <div id="youtubePlayerContainer" style="display: none; margin-top: 12px; border-radius: 12px; overflow: hidden; background: #000; position: relative; padding-bottom: 56.25%; height: 0; box-shadow: 0 8px 24px rgba(0,0,0,0.5);">
+                    <iframe id="youtubeIframe" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: none;" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+                </div>
             </div>
 
             <!-- Search Podcast Input -->
@@ -220,6 +224,6 @@
     <!-- Notification Toast -->
     <div class="toast" id="toast">Notification</div>
 
-    <script src="app.js?v=6" type="module"></script>
+    <script src="app.js?v=7" type="module"></script>
 </body>
 </html>
