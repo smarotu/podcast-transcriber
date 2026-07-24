@@ -16,7 +16,23 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="description" content="Transcribe Spotify podcast episodes locally in browser with WebAssembly Whisper for Gemini & AI Chatbots.">
 
-    <link rel="stylesheet" href="styles.css?v=50">
+    <script>
+        // Automatic Service Worker & Cache Purger for v99
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.getRegistrations().then(registrations => {
+                for (let registration of registrations) {
+                    registration.unregister();
+                }
+            });
+        }
+        if (window.caches) {
+            caches.keys().then(names => {
+                for (let name of names) caches.delete(name);
+            });
+        }
+    </script>
+
+    <link rel="stylesheet" href="styles.css?v=99">
     <!-- Google OAuth / YouTube API SDK -->
     <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
@@ -247,6 +263,6 @@
     <!-- Notification Toast -->
     <div class="toast" id="toast">Notification</div>
 
-    <script src="app.js?v=50" type="module"></script>
+    <script src="app.js?v=99" type="module"></script>
 </body>
 </html>
