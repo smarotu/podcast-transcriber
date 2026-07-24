@@ -272,6 +272,7 @@ async function resolveYouTubeClient(url) {
 }
 
 // Live Speech Recognition for playing YouTube video audio
+let liveSpeechRecognition = null;
 let isLiveListening = false;
 
 function startLiveSpeechRecognition(langCode = 'pt-PT') {
