@@ -1,5 +1,19 @@
 // Podcast Transcriber Mobile Application Logic
 
+// Force clear stale Service Worker caches on Android Edge & Mobile Browsers
+if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.getRegistrations().then(registrations => {
+        for (let registration of registrations) {
+            registration.unregister();
+        }
+    });
+}
+if ('caches' in window) {
+    caches.keys().then(names => {
+        for (let name of names) caches.delete(name);
+    });
+}
+
 let worker = null;
 let currentAudioBuffer = null;
 let currentMetadata = {
