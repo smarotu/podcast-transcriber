@@ -150,6 +150,68 @@ function handleWorkerMessage(data) {
     }
 }
 
+async function resolveYouTubeClient(url) {
+    const match = url.match(/(?:v=|\/shorts\/|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
+    const videoId = match ? match[1] : null;
+
+    let title = 'YouTube Video';
+    let show = 'YouTube Channel';
+
+    // 1. Fetch metadata via YouTube oEmbed
+    try {
+        const oembedRes = await fetch(`https://www.youtube.com/oembed?url=${encodeURIComponent(url)}&format=json`);
+        if (oembedRes.ok) {
+            const oembed = await oembedRes.json();
+            title = oembed.title || title;
+            show = oembed.author_name || show;
+        }
+    } catch (e) {}
+
+    // 2. Try server endpoint if backend is present
+    try {
+        const resolveRes = await fetch(`/api/resolve-youtube?url=${encodeURIComponent(url)}`);
+        if (resolveRes.ok) {
+            const contentType = resolveRes.headers.get('content-type') || '';
+            if (contentType.includes('application/json')) {
+                const data = await resolveRes.json();
+                if (data.audioUrl) return data;
+            }
+        }
+    } catch (e) {}
+
+    // 3. Fallback for Static GitHub Pages mode (Invidious CORS API streams)
+    if (videoId) {
+        const invidiousInstances = [
+            `https://invidious.nerdvpn.de/api/v1/videos/${videoId}`,
+            `https://inv.tux.pizza/api/v1/videos/${videoId}`,
+            `https://invidious.drgns.space/api/v1/videos/${videoId}`
+        ];
+
+        for (const inst of invidiousInstances) {
+            try {
+                const res = await fetch(inst);
+                if (res.ok) {
+                    const data = await res.json();
+                    title = data.title || title;
+                    show = data.author || show;
+                    const audioFormats = (data.adaptiveFormats || []).filter(f => f.type && f.type.includes('audio'));
+                    if (audioFormats.length > 0) {
+                        audioFormats.sort((a, b) => (b.bitrate || 0) - (a.bitrate || 0));
+                        return { title, show, audioUrl: audioFormats[0].url };
+                    }
+                }
+            } catch (e) {}
+        }
+    }
+
+    return {
+        title,
+        show,
+        audioUrl: null,
+        error: 'YouTube direct stream extraction requires local server AI mode (yt-dlp). On GitHub Pages static mode, please use the "📁 Upload File" tab or paste direct MP3 link!'
+    };
+}
+
 // Toast notification helper
 function showToast(message) {
     toast.textContent = message;
@@ -345,12 +407,11 @@ transcribeBtn.addEventListener('click', async () => {
                 return;
             }
 
-            statusTitle.textContent = 'Resolving audio stream from YouTube link...';
-            const resolveRes = await fetch(`/api/resolve-youtube?url=${encodeURIComponent(url)}`);
-            const resolveData = await resolveRes.json();
+            statusTitle.textContent = 'Resolving YouTube audio metadata...';
+            const resolveData = await resolveYouTubeClient(url);
 
             if (resolveData.error || !resolveData.audioUrl) {
-                throw new Error(resolveData.error || 'Could not extract audio stream from this YouTube link!');
+                throw new Error(resolveData.error || 'Could not extract audio stream from this YouTube link on static mode. Please upload the audio file or paste direct MP3 link!');
             }
 
             currentMetadata = {
