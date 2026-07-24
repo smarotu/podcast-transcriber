@@ -68,7 +68,7 @@ function initWorker() {
         try { worker.terminate(); } catch (e) {}
         worker = null;
     }
-    worker = new Worker('/worker.js', { type: 'module' });
+    worker = new Worker('worker.js', { type: 'module' });
     
     worker.onmessage = (e) => {
         const data = e.data;
@@ -157,7 +157,7 @@ async function resolveYouTubeClient(url) {
     let title = 'YouTube Video';
     let show = 'YouTube Channel';
 
-    // 1. Fetch metadata via YouTube oEmbed
+    // 1. Fetch metadata via YouTube oEmbed (CORS supported)
     try {
         const oembedRes = await fetch(`https://www.youtube.com/oembed?url=${encodeURIComponent(url)}&format=json`);
         if (oembedRes.ok) {
@@ -179,36 +179,11 @@ async function resolveYouTubeClient(url) {
         }
     } catch (e) {}
 
-    // 3. Fallback for Static GitHub Pages mode (Invidious CORS API streams)
-    if (videoId) {
-        const invidiousInstances = [
-            `https://invidious.nerdvpn.de/api/v1/videos/${videoId}`,
-            `https://inv.tux.pizza/api/v1/videos/${videoId}`,
-            `https://invidious.drgns.space/api/v1/videos/${videoId}`
-        ];
-
-        for (const inst of invidiousInstances) {
-            try {
-                const res = await fetch(inst);
-                if (res.ok) {
-                    const data = await res.json();
-                    title = data.title || title;
-                    show = data.author || show;
-                    const audioFormats = (data.adaptiveFormats || []).filter(f => f.type && f.type.includes('audio'));
-                    if (audioFormats.length > 0) {
-                        audioFormats.sort((a, b) => (b.bitrate || 0) - (a.bitrate || 0));
-                        return { title, show, audioUrl: audioFormats[0].url };
-                    }
-                }
-            } catch (e) {}
-        }
-    }
-
     return {
         title,
         show,
         audioUrl: null,
-        error: 'YouTube direct stream extraction requires local server AI mode (yt-dlp). On GitHub Pages static mode, please use the "📁 Upload File" tab or paste direct MP3 link!'
+        error: `Loaded YouTube video: "${title}" (${show}). On GitHub Pages static mode, direct YouTube audio extraction requires the local PC server (node server.js). Please use the "📁 Upload File" tab to process your audio file!`
     };
 }
 
