@@ -38,7 +38,7 @@ function resolveYouTubeUrl(ytUrl) {
             ? ['--dump-json', '--no-warnings', '--no-playlist', '--extractor-args', 'youtube:player_client=ios,mweb', ytUrl]
             : [YT_DLP_PATH, '--dump-json', '--no-warnings', '--no-playlist', '--extractor-args', 'youtube:player_client=ios,mweb', ytUrl];
 
-        execFile(cmd, args, { maxBuffer: 50 * 1024 * 1024 }, (err, stdout, stderr) => {
+        execFile(cmd, args, { maxBuffer: 50 * 1024 * 1024 }, async (err, stdout, stderr) => {
             if (err) {
                 const errMsg = (stderr || err.message || 'Extract failed').slice(0, 300);
                 console.error('yt-dlp JSON error:', errMsg);
@@ -50,6 +50,36 @@ function resolveYouTubeUrl(ytUrl) {
                 const title = json.fulltitle || json.title || 'YouTube Podcast';
                 const show = json.uploader || json.channel || 'YouTube';
                 
+                // Try instant caption extraction
+                let instantTranscript = '';
+                const autoCaps = json.automatic_captions || {};
+                const subs = json.subtitles || {};
+                const capTrack = (subs.pt || autoCaps.pt || subs.en || autoCaps.en || [])[0];
+
+                if (capTrack && capTrack.url) {
+                    try {
+                        const rawCap = await fetchUrl(capTrack.url);
+                        if (rawCap.startsWith('{')) {
+                            const capJson = JSON.parse(rawCap);
+                            let lines = [];
+                            (capJson.events || []).forEach(e => {
+                                if (e.segs && e.tStartMs !== undefined) {
+                                    const text = e.segs.map(s => s.utf8).join('').trim();
+                                    if (text && text !== '\n') {
+                                        const secs = Math.floor(e.tStartMs / 1000);
+                                        const mins = Math.floor(secs / 60);
+                                        const remSecs = (secs % 60).toString().padStart(2, '0');
+                                        lines.push(`[${mins}:${remSecs}] ${text}`);
+                                    }
+                                }
+                            });
+                            instantTranscript = lines.join('\n');
+                        }
+                    } catch (e) {
+                        console.error('Instant caption error:', e.message);
+                    }
+                }
+
                 const cachedFileName = `yt_${videoId}.mp3`;
                 const cachedFilePath = path.join(CACHE_DIR, cachedFileName);
 
@@ -59,7 +89,8 @@ function resolveYouTubeUrl(ytUrl) {
                         title,
                         show,
                         audioUrl: `/api/local-audio?file=${cachedFileName}`,
-                        youtubeUrl: ytUrl
+                        youtubeUrl: ytUrl,
+                        transcript: instantTranscript
                     });
                 }
 
@@ -75,7 +106,8 @@ function resolveYouTubeUrl(ytUrl) {
                         title,
                         show,
                         audioUrl: `/api/local-audio?file=${cachedFileName}`,
-                        youtubeUrl: ytUrl
+                        youtubeUrl: ytUrl,
+                        transcript: instantTranscript
                     });
                 });
 

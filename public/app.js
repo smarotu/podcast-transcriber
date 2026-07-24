@@ -439,20 +439,31 @@ transcribeBtn.addEventListener('click', async () => {
             statusTitle.textContent = 'Resolving YouTube audio metadata...';
             const resolveData = await resolveYouTubeClient(url);
 
-            if (resolveData.error || !resolveData.audioUrl) {
-                throw new Error(resolveData.error || 'Could not extract audio stream from this YouTube link on static mode. Please upload the audio file or paste direct MP3 link!');
-            }
-
             currentMetadata = {
-                title: resolveData.title,
+                title: resolveData.title || 'YouTube Video',
                 show: resolveData.show || 'YouTube Channel',
-                audioUrl: resolveData.audioUrl,
+                audioUrl: resolveData.audioUrl || '',
                 spotifyUrl: url
             };
 
             previewTitle.textContent = currentMetadata.title;
             previewShow.textContent = currentMetadata.show;
             episodeMetaPreview.style.display = 'flex';
+
+            if (resolveData.transcript) {
+                rawTranscript = resolveData.transcript;
+                outputArea.value = formatTranscriptForOutput(rawTranscript);
+                outputCard.style.display = 'block';
+                outputCard.scrollIntoView({ behavior: 'smooth' });
+                showToast('✨ Instant YouTube Captions Loaded!');
+                saveToLibrary(currentMetadata.title, currentMetadata.show, rawTranscript, url);
+                progressCard.style.display = 'none';
+                return;
+            }
+
+            if (resolveData.error || !resolveData.audioUrl) {
+                throw new Error(resolveData.error || 'Could not extract audio stream from this YouTube link on static mode. Please upload the audio file or paste direct MP3 link!');
+            }
 
             audioUrlToFetch = currentMetadata.audioUrl.startsWith('/api/') ? currentMetadata.audioUrl : `/api/proxy-audio?url=${encodeURIComponent(currentMetadata.audioUrl)}`;
             audioPlayer.src = audioUrlToFetch;
