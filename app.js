@@ -259,12 +259,32 @@ async function performPodcastSearch() {
     searchResultsList.innerHTML = '<span style="font-size:0.85rem; color:var(--text-muted);">🔍 Searching podcast feeds...</span>';
 
     try {
-        const res = await fetch(`/api/search-podcast?q=${encodeURIComponent(q)}`);
-        const data = await res.json();
+        let results = [];
+        try {
+            const res = await fetch(`/api/search-podcast?q=${encodeURIComponent(q)}`);
+            if (res.ok) {
+                const data = await res.json();
+                results = data.results || [];
+            }
+        } catch (e) {}
 
-        if (data.results && data.results.length > 0) {
+        // Fallback for GitHub Pages static mode (iTunes API CORS search)
+        if (results.length === 0) {
+            const itunesRes = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(q)}&entity=podcastEpisode&limit=10`);
+            if (itunesRes.ok) {
+                const itunesData = await itunesRes.json();
+                results = (itunesData.results || []).map(r => ({
+                    title: r.trackName,
+                    show: r.collectionName,
+                    audioUrl: r.episodeUrl || r.previewUrl,
+                    artwork: r.artworkUrl100 || r.artworkUrl60
+                })).filter(r => r.audioUrl);
+            }
+        }
+
+        if (results.length > 0) {
             searchResultsList.innerHTML = '';
-            data.results.forEach((item, idx) => {
+            results.forEach((item) => {
                 const div = document.createElement('div');
                 div.style.cssText = 'background: rgba(255,255,255,0.05); padding: 10px; border-radius: 8px; display: flex; align-items: center; justify-content: space-between; gap: 10px;';
                 div.innerHTML = `
@@ -280,19 +300,23 @@ async function performPodcastSearch() {
                         title: item.title,
                         show: item.show || 'Podcast',
                         audioUrl: item.audioUrl,
-                        spotifyUrl: ''
+                        spotifyUrl: item.audioUrl
                     };
-                    directUrlInput.value = item.audioUrl;
-                    setTab('direct');
-                    showToast(`Selected: "${item.title}". Click Start Transcribing!`);
+                    previewTitle.textContent = currentMetadata.title;
+                    previewShow.textContent = currentMetadata.show;
+                    episodeMetaPreview.style.display = 'flex';
+                    audioPlayer.src = item.audioUrl;
+                    audioPlayer.style.display = 'block';
+                    showToast(`Selected "${item.title}". Click "Start Transcribing"!`);
                 });
                 searchResultsList.appendChild(div);
             });
         } else {
-            searchResultsList.innerHTML = '<span style="font-size:0.85rem; color:#f87171;">No matching podcast episodes found. Try different keywords!</span>';
+            searchResultsList.innerHTML = '<span style="font-size:0.85rem; color:var(--text-muted);">No episode feeds found. Try another search term!</span>';
         }
     } catch (err) {
-        searchResultsList.innerHTML = `<span style="font-size:0.85rem; color:#f87171;">Search failed: ${err.message}</span>`;
+        console.error('Search error:', err);
+        searchResultsList.innerHTML = '<span style="font-size:0.85rem; color:var(--text-muted);">Error searching podcast feeds.</span>';
     } finally {
         btnDoSearch.disabled = false;
         btnDoSearch.textContent = 'Search';
