@@ -258,8 +258,13 @@ function startLiveSpeechRecognition(langCode = 'pt-PT') {
             }
         }
         rawTranscript = finalTranscript + interim;
-        outputArea.value = formatTranscriptForOutput(rawTranscript);
-        outputCard.style.display = 'block';
+        const outArea = document.getElementById('outputArea');
+        const outCard = document.getElementById('outputCard');
+        if (outArea) outArea.value = formatTranscriptForOutput(rawTranscript);
+        if (outCard) {
+            outCard.style.display = 'block';
+            outCard.scrollIntoView({ behavior: 'smooth' });
+        }
     };
 
     liveSpeechRecognition.onerror = (err) => {
