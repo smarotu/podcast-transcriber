@@ -245,7 +245,7 @@ if (btnStartLiveSpeech) {
 
 // Google OAuth 2.0 Sign-In for YouTube Captions & Data API
 let ytAccessToken = localStorage.getItem('yt_oauth_token') || null;
-let customClientId = localStorage.getItem('yt_client_id') || '';
+let customClientId = localStorage.getItem('yt_client_id') || '455784834087-2s7kkhtsma04vl3d7iba6ubhaa5alr4t.apps.googleusercontent.com';
 let googleTokenClient = null;
 
 function initYouTubeOAuth() {
@@ -255,7 +255,7 @@ function initYouTubeOAuth() {
     const btnSaveClientId = document.getElementById('btnSaveClientId');
 
     if (googleClientIdInput) {
-        googleClientIdInput.value = localStorage.getItem('yt_client_id') || '';
+        googleClientIdInput.value = localStorage.getItem('yt_client_id') || '455784834087-2s7kkhtsma04vl3d7iba6ubhaa5alr4t.apps.googleusercontent.com';
     }
 
     if (btnSaveClientId) {
