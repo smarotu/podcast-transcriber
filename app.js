@@ -114,8 +114,11 @@ function handleWorkerMessage(data) {
             progressText.textContent = `Segment ${data.chunkIndex} of ${data.totalChunks} (${data.progress}%)`;
             break;
 
-        case 'live-chunk-result':
-            if (data.text) {
+        case 'live-chunk-result': {
+            // Filter out Whisper non-speech event tokens (music, silence, applause, etc.)
+            const whisperEventPattern = /^\s*(\[.*?\]\s*)+\s*$/;
+            const cleanedText = (data.text || '').trim();
+            if (cleanedText && !whisperEventPattern.test(cleanedText)) {
                 const transcriptCard = document.getElementById('transcriptCard');
                 const transcriptBox = document.getElementById('transcriptBox');
                 if (transcriptCard) transcriptCard.style.display = 'block';
@@ -127,11 +130,12 @@ function handleWorkerMessage(data) {
                     const body = currentText.includes('==================================================') 
                         ? currentText.split('==================================================')[1] 
                         : currentText;
-                    transcriptBox.textContent = header + (body ? body + '\n\n' : '') + data.text;
+                    transcriptBox.textContent = header + (body ? body + ' ' : '') + cleanedText;
                     transcriptBox.scrollTop = transcriptBox.scrollHeight;
                 }
             }
             break;
+        }
 
         case 'partial':
             if (data.text) {
