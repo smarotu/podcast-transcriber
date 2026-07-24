@@ -245,11 +245,32 @@ if (btnStartLiveSpeech) {
 
 // Google OAuth 2.0 Sign-In for YouTube Captions & Data API
 let ytAccessToken = localStorage.getItem('yt_oauth_token') || null;
+let customClientId = localStorage.getItem('yt_client_id') || '';
 let googleTokenClient = null;
 
 function initYouTubeOAuth() {
     const btnYtAuth = document.getElementById('btnYtAuth');
     const ytAuthStatus = document.getElementById('ytAuthStatus');
+    const googleClientIdInput = document.getElementById('googleClientIdInput');
+    const btnSaveClientId = document.getElementById('btnSaveClientId');
+
+    if (googleClientIdInput) {
+        googleClientIdInput.value = localStorage.getItem('yt_client_id') || '';
+    }
+
+    if (btnSaveClientId) {
+        btnSaveClientId.onclick = () => {
+            const val = (googleClientIdInput?.value || '').trim();
+            if (!val) {
+                showToast('Please paste your Google OAuth Client ID from Google Cloud Console');
+                return;
+            }
+            customClientId = val;
+            localStorage.setItem('yt_client_id', val);
+            googleTokenClient = null;
+            showToast('✅ Saved Google Client ID!');
+        };
+    }
 
     if (ytAccessToken) {
         if (ytAuthStatus) ytAuthStatus.innerHTML = '<span style="color:#10b981; font-weight:600;">✅ YouTube Authenticated</span>';
@@ -261,9 +282,16 @@ function initYouTubeOAuth() {
             if (ytAccessToken) {
                 ytAccessToken = null;
                 localStorage.removeItem('yt_oauth_token');
-                if (ytAuthStatus) ytAuthStatus.innerHTML = '<span>🔑 Sign in to unlock full YouTube captions & video playback</span>';
+                if (ytAuthStatus) ytAuthStatus.innerHTML = '<span>🔑 Sign in to unlock YouTube captions & playback</span>';
                 btnYtAuth.textContent = '🔴 Sign in with YouTube';
                 showToast('Signed out of YouTube.');
+                return;
+            }
+
+            const activeClientId = (googleClientIdInput?.value || '').trim() || customClientId;
+            if (!activeClientId) {
+                showToast('Please enter your Google OAuth Client ID first!');
+                googleClientIdInput?.focus();
                 return;
             }
 
@@ -274,7 +302,7 @@ function initYouTubeOAuth() {
 
             try {
                 googleTokenClient = google.accounts.oauth2.initTokenClient({
-                    client_id: '921191599818-m4b8v6s9k0r8p7q6e3w2a1z0y9x8w7v6.apps.googleusercontent.com',
+                    client_id: activeClientId,
                     scope: 'https://www.googleapis.com/auth/youtube.readonly',
                     ux_mode: 'popup',
                     callback: (response) => {
