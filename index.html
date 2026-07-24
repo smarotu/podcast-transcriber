@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>PodScribe - Spotify Podcast Transcriber for Android & Gemini</title>
+    
+    <!-- PWA & Mobile Icons -->
+    <link rel="manifest" href="/manifest.json">
+    <link rel="icon" type="image/png" href="/icon.png">
+    <link rel="apple-touch-icon" href="/icon.png">
+    <meta name="theme-color" content="#0b0f19">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="PodScribe AI">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="description" content="Transcribe Spotify podcast episodes locally in browser with WebAssembly Whisper for Gemini & AI Chatbots.">
+
+    <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+    <!-- Background Glow Effects -->
+    <div class="bg-glow bg-glow-1"></div>
+    <div class="bg-glow bg-glow-2"></div>
+
+    <div class="app-container">
+        <!-- Header -->
+        <header class="app-header">
+            <div class="logo-group">
+                <div class="logo-icon">
+                    <svg viewBox="0 0 512 512">
+                        <path d="M140 210v92M188 150v212M236 110v292M284 170v172M332 220v72" stroke="#fff" stroke-width="28" stroke-linecap="round"/>
+                    </svg>
+                </div>
+                <div>
+                    <h1 class="brand-name">PodScribe</h1>
+                    <span style="font-size: 0.75rem; color: var(--text-muted);">Spotify to Gemini Transcriber</span>
+                </div>
+            </div>
+            <span class="badge-mobile">📱 Mobile PWA</span>
+        </header>
+
+        <!-- Main Input Card -->
+        <main class="card">
+            <div class="card-title">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/>
+                    <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+                    <line x1="12" y1="19" x2="12" y2="22"/>
+                </svg>
+                Select Audio Input Source
+            </div>
+
+            <!-- Tab Switcher -->
+            <div class="tab-group">
+                <button type="button" class="tab-btn active" id="tabSpotify">
+                    <span>🟢 Spotify Link</span>
+                </button>
+                <button type="button" class="tab-btn" id="tabYoutube">
+                    <span>🔴 YouTube Link</span>
+                </button>
+                <button type="button" class="tab-btn" id="tabSearch">
+                    <span>🔍 Search Podcast</span>
+                </button>
+                <button type="button" class="tab-btn" id="tabDirect">
+                    <span>🔗 Audio Link</span>
+                </button>
+                <button type="button" class="tab-btn" id="tabFile">
+                    <span>📁 Upload File</span>
+                </button>
+            </div>
+
+            <!-- Spotify URL Input -->
+            <div class="input-wrapper" id="inputSectionSpotify">
+                <input type="text" id="spotifyUrlInput" class="text-input" placeholder="https://open.spotify.com/episode/..." autocomplete="off">
+                <span style="font-size: 0.78rem; color: var(--text-muted);">Paste Spotify podcast episode URL.</span>
+            </div>
+
+            <!-- YouTube URL Input -->
+            <div class="input-wrapper" id="inputSectionYoutube" style="display: none;">
+                <input type="text" id="youtubeUrlInput" class="text-input" placeholder="https://www.youtube.com/watch?v=... or https://youtu.be/..." autocomplete="off">
+                <span style="font-size: 0.78rem; color: var(--text-muted);">Paste any YouTube podcast or video URL.</span>
+            </div>
+
+            <!-- Search Podcast Input -->
+            <div class="input-wrapper" id="inputSectionSearch" style="display: none;">
+                <div style="display: flex; gap: 8px;">
+                    <input type="text" id="podcastSearchInput" class="text-input" placeholder="Search podcast title (e.g. Alô Ciência #155)..." autocomplete="off">
+                    <button type="button" id="btnDoSearch" style="background: var(--brand); color: #000; border: none; padding: 0 16px; border-radius: 8px; font-weight: 600; cursor: pointer;">Search</button>
+                </div>
+                <div id="searchResultsList" style="margin-top: 10px; display: flex; flex-direction: column; gap: 8px;"></div>
+            </div>
+
+            <!-- Direct URL Input -->
+            <div class="input-wrapper" id="inputSectionDirect" style="display: none;">
+                <input type="text" id="directUrlInput" class="text-input" placeholder="https://example.com/podcast-audio.mp3" autocomplete="off">
+                <span style="font-size: 0.78rem; color: var(--text-muted);">Paste direct MP3/M4A/Ogg audio stream link.</span>
+            </div>
+
+            <!-- Audio File Upload Input -->
+            <div class="input-wrapper" id="inputSectionFile" style="display: none;">
+                <div class="file-dropzone" id="fileDropzone">
+                    <div class="file-dropzone-icon">🎙️</div>
+                    <div style="font-weight: 600; font-size: 0.95rem;" class="drop-text">Tap to select audio file from phone</div>
+                    <div style="font-size: 0.78rem; color: var(--text-muted); margin-top: 4px;">Supports MP3, M4A, WAV, OGG, AAC</div>
+                </div>
+                <input type="file" id="audioFileInput" accept="audio/*" style="display: none;">
+            </div>
+
+            <!-- Model & Language Settings -->
+            <div class="setting-row">
+                <span class="setting-label">Whisper AI Model:</span>
+                <select id="modelSelect" class="select-dropdown">
+                    <option value="Xenova/whisper-tiny" selected>⚡ Tiny Multilingual (~39MB - Fast)</option>
+                    <option value="Xenova/whisper-base">⚖️ Base Multilingual (~74MB - Balanced)</option>
+                    <option value="Xenova/whisper-small">🎯 Small Multilingual (~244MB - High Accuracy)</option>
+                </select>
+            </div>
+
+            <div class="setting-row">
+                <span class="setting-label">Audio Language:</span>
+                <select id="languageSelect" class="select-dropdown">
+                    <option value="auto" selected>🌐 Auto-Detect Language</option>
+                    <option value="pt">🇵🇹 / 🇧🇷 Portuguese (Português)</option>
+                    <option value="en">🇺🇸 English</option>
+                    <option value="es">🇪🇸 Spanish (Español)</option>
+                    <option value="fr">🇫🇷 French (Français)</option>
+                    <option value="de">🇩🇪 German (Deutsch)</option>
+                </select>
+            </div>
+
+            <div style="margin-top: 18px;">
+                <button type="button" class="btn-primary" id="transcribeBtn">
+                    <span>✨ Start Transcribing</span>
+                </button>
+            </div>
+        </main>
+
+        <!-- Progress Card -->
+        <section class="card progress-card" id="progressCard" style="display: none;">
+            <div class="status-header">
+                <div class="status-title">
+                    <div class="pulse-dot"></div>
+                    <span id="statusTitle">Loading WebAssembly Whisper...</span>
+                </div>
+            </div>
+
+            <div class="progress-bar-bg">
+                <div class="progress-bar-fill" id="progressBarFill"></div>
+            </div>
+
+            <div style="font-size: 0.8rem; color: var(--text-muted);" id="progressText">
+                Initializing local AI worker...
+            </div>
+
+            <!-- Episode Preview & Audio Player -->
+            <div class="episode-meta-preview" id="episodeMetaPreview" style="display: none;">
+                <div class="meta-icon">🎧</div>
+                <div class="meta-info">
+                    <div class="meta-title" id="previewTitle">Podcast Episode</div>
+                    <div class="meta-show" id="previewShow">Show Name</div>
+                </div>
+            </div>
+            <audio id="audioPlayer" controls style="display: none;"></audio>
+        </section>
+
+        <!-- Transcript Output Card -->
+        <section class="card transcript-card" id="transcriptCard" style="display: none;">
+            <div class="card-title">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                    <polyline points="14 2 14 8 20 8"/>
+                    <line x1="16" y1="13" x2="8" y2="13"/>
+                    <line x1="16" y1="17" x2="8" y2="17"/>
+                </svg>
+                Transcript (Ready for Gemini)
+            </div>
+
+            <div class="action-bar">
+                <button type="button" class="btn-secondary" id="btnCopy">
+                    <span>📋 Copy Text</span>
+                </button>
+                <button type="button" class="btn-secondary" id="btnDownloadTxt">
+                    <span>📄 Download .txt</span>
+                </button>
+                <button type="button" class="btn-secondary" id="btnDownloadMd">
+                    <span>📝 Download .md</span>
+                </button>
+                <button type="button" class="btn-secondary btn-share" id="btnShare">
+                    <span>📲 Share to Gemini App</span>
+                </button>
+            </div>
+
+            <div class="transcript-box" id="transcriptBox">
+                Transcript output will appear here...
+            </div>
+        </section>
+
+        <!-- Saved Transcripts Library Card -->
+        <section class="card history-card" id="historyCard" style="margin-top: 24px;">
+            <div class="card-title" style="display: flex; justify-content: space-between; align-items: center;">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
+                        <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
+                    </svg>
+                    Saved Transcripts Library (<span id="historyCount">0</span>)
+                </div>
+                <button type="button" id="btnClearHistory" style="background: transparent; color: #ef4444; border: none; font-size: 0.78rem; cursor: pointer; display: none;">Clear All</button>
+            </div>
+
+            <div id="historyList" style="display: flex; flex-direction: column; gap: 12px; margin-top: 12px;">
+                <div style="font-size: 0.85rem; color: var(--text-muted); text-align: center; padding: 20px 0;">
+                    No saved transcripts yet. Transcribe an episode and it will be saved here automatically!
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <!-- Notification Toast -->
+    <div class="toast" id="toast">Notification</div>
+
+    <script src="/app.js" type="module"></script>
+</body>
+</html>

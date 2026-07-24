@@ -1,6 +1,7 @@
 node_modules/
 .cache/
 bin/
+.npm-bootstrap/
 temp*
 *.log
 .DS_Store
