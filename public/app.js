@@ -332,7 +332,11 @@ function startLiveSpeechRecognition(langCode = 'pt-PT') {
             }
         }
         rawTranscript = finalTranscript + interim;
-        if (outArea) outArea.value = formatTranscriptForOutput(rawTranscript);
+        const currentText = outArea ? outArea.value : '';
+        const header = currentText.includes('==================================================') 
+            ? currentText.split('==================================================')[0] + '==================================================\n'
+            : '';
+        if (outArea) outArea.value = header + rawTranscript;
         if (outCard) outCard.style.display = 'block';
     };
 
