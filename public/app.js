@@ -151,13 +151,27 @@ function handleWorkerMessage(data) {
 }
 
 async function resolveYouTubeClient(url) {
-    const match = url.match(/(?:v=|\/shorts\/|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
-    const videoId = match ? match[1] : null;
-
     let title = 'YouTube Video';
     let show = 'YouTube Channel';
 
-    // 1. Fetch metadata via YouTube oEmbed (CORS supported)
+    // 1. Try server endpoint first (Render cloud or local PC server)
+    try {
+        const resolveRes = await fetch(`/api/resolve-youtube?url=${encodeURIComponent(url)}`);
+        if (resolveRes.ok) {
+            const contentType = resolveRes.headers.get('content-type') || '';
+            if (contentType.includes('application/json')) {
+                const data = await resolveRes.json();
+                if (data.audioUrl) return data;
+                if (data.error && !data.error.includes('Could not resolve')) {
+                    throw new Error(data.error);
+                }
+            }
+        }
+    } catch (e) {
+        if (e.message && !e.message.includes('Unexpected token')) throw e;
+    }
+
+    // 2. Fetch metadata via YouTube oEmbed (CORS supported)
     try {
         const oembedRes = await fetch(`https://www.youtube.com/oembed?url=${encodeURIComponent(url)}&format=json`);
         if (oembedRes.ok) {
@@ -167,23 +181,11 @@ async function resolveYouTubeClient(url) {
         }
     } catch (e) {}
 
-    // 2. Try server endpoint if backend is present
-    try {
-        const resolveRes = await fetch(`/api/resolve-youtube?url=${encodeURIComponent(url)}`);
-        if (resolveRes.ok) {
-            const contentType = resolveRes.headers.get('content-type') || '';
-            if (contentType.includes('application/json')) {
-                const data = await resolveRes.json();
-                if (data.audioUrl) return data;
-            }
-        }
-    } catch (e) {}
-
     return {
         title,
         show,
         audioUrl: null,
-        error: `Loaded YouTube video: "${title}" (${show}). On GitHub Pages static mode, direct YouTube audio extraction requires the local PC server (node server.js). Please use the "📁 Upload File" tab to process your audio file!`
+        error: `Loaded YouTube video: "${title}" (${show}). Please use the "📁 Upload File" tab to process your audio file, or use local PC server!`
     };
 }
 
