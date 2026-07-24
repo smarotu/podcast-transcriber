@@ -36,7 +36,9 @@ self.addEventListener('message', async (event) => {
             const isSilent = audioBuffer.every(s => s === 0);
             if (isSilent) { self.postMessage({ status: 'live-chunk-result', text: '' }); return; }
             const result = await transcriber(audioBuffer, transcribeOpts);
-            self.postMessage({ status: 'live-chunk-result', text: (result?.text || '').trim() });
+            const rawText = (result?.text || '').trim();
+            console.log('[Whisper Live] raw output:', JSON.stringify(rawText), '| lang:', normalizedLang || 'auto', '| samples:', audioBuffer.length);
+            self.postMessage({ status: 'live-chunk-result', text: rawText });
         } catch (err) {
             console.error('Live chunk error:', err);
         }

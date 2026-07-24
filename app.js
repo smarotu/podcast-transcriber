@@ -118,7 +118,9 @@ function handleWorkerMessage(data) {
             // Filter out Whisper non-speech event tokens (music, silence, applause, etc.)
             const whisperEventPattern = /^\s*(\[.*?\]\s*)+\s*$/;
             const cleanedText = (data.text || '').trim();
-            if (cleanedText && !whisperEventPattern.test(cleanedText)) {
+            const isFiltered = whisperEventPattern.test(cleanedText);
+            console.log('[App] live-chunk-result: Accepted text logged:', JSON.stringify(cleanedText), '| filtered:', isFiltered);
+            if (cleanedText && !isFiltered) {
                 const transcriptCard = document.getElementById('transcriptCard');
                 const transcriptBox = document.getElementById('transcriptBox');
                 if (transcriptCard) transcriptCard.style.display = 'block';
