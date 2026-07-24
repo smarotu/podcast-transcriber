@@ -33,7 +33,12 @@ if (!fs.existsSync(CACHE_DIR)) fs.mkdirSync(CACHE_DIR, { recursive: true });
 
 function resolveYouTubeUrl(ytUrl) {
     return new Promise((resolve) => {
-        execFile(YT_DLP_PATH, ['--dump-json', '--no-warnings', '--no-playlist', ytUrl], { maxBuffer: 50 * 1024 * 1024 }, (err, stdout, stderr) => {
+        const cmd = process.platform === 'win32' ? YT_DLP_PATH : 'python3';
+        const args = process.platform === 'win32'
+            ? ['--dump-json', '--no-warnings', '--no-playlist', ytUrl]
+            : [YT_DLP_PATH, '--dump-json', '--no-warnings', '--no-playlist', ytUrl];
+
+        execFile(cmd, args, { maxBuffer: 50 * 1024 * 1024 }, (err, stdout, stderr) => {
             if (err) {
                 console.error('yt-dlp JSON error:', stderr || err.message);
                 return resolve({ error: 'Could not resolve YouTube video metadata.' });
